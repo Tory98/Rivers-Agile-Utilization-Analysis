@@ -1,0 +1,641 @@
+---
+title: "RiversAgile"
+output: html_document
+---
+
+#Read in Dataframe
+```{r}
+df<-read_csv("/Users/4victoria98/Downloads/Labor Econ/RiversAgileTimeData.csv")
+```
+
+```{r}
+contractors
+```
+
+
+```{r}
+internal_df<-df%>%filter(`Project Name` == "Internal")
+internalhrs_df<-aggregate(cbind(Hours)~`Task Name`, data=internal_df, sum)
+
+projects_df<-aggregate(cbind(Hours)~`Project Name`, data=df, sum)
+projects_df<-projects_df%>% arrange(desc(Hours))
+nrow(projects_df)
+#projects_df<-projects_df[1:10,]
+internalhrs_df<-internalhrs_df%>% arrange(desc(Hours))
+
+projects_df
+projects_plot<-ggplot(data = projects_df, aes(x=reorder(`Project Name`, -Hours),  y=Hours)) + geom_col(fill="#E47227")+labs(x="", y="Hours", title="Top 10 Projects")+theme_bw() + theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))+ theme(axis.text = element_text(size = 12), axis.title = element_text(size = 16), title = element_text(size = 15.8)) + geom_hline(yintercept=200)
+internal_plot<-ggplot(data = internalhrs_df, aes(x=reorder(`Task Name`, -Hours), y=Hours)) + geom_col(fill="#E47227")+labs(x="", y="Hours", title = "Internal Tasks")+theme_bw() + theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) + theme(axis.text = element_text(size = 12), axis.title = element_text(size = 16), title = element_text(size = 15.8))
+
+projects_plot#+internal_plot
+```
+
+
+```{r}
+pto_df<-df%>%filter(`Task Name`== "PTO")
+pto_df<-aggregate(cbind(Hours)~Date, data=pto_df, sum)
+colnames(pto_df)<-c("date", "PTO Hours")
+pto_df$date<-mdy(pto_df$date)
+joined.PTO.bydate<-merge(pto_df, no_hols, by="date", all.x=TRUE)
+
+joined.PTO.bydate
+```
+```{r}
+pto_ut_hrs<-ggplot(data=joined.PTO.bydate, aes(x=`PTO Hours`, y=Utilization))+geom_point(color="#606060")+theme_bw()+labs(x="PTO Hours", y="Employee Utilization", title="Correlation of Employee Utilization and PTO Hours") + geom_smooth(method="lm", color="#E47227")+ theme(axis.title = element_text(size = 16), title = element_text(size = 15.8), axis.text=element_text(size = 12)) + geom_label(aes(x=35, y=.67, label="Coefficient: 0.00157*\nStandard Error: 0.00091"))
+
+
+
+pto_ut_hrs
+```
+
+```{r}
+pto_reg<-lm(Utilization~`PTO Hours`, joined.PTO.bydate)
+summary(pto_reg)
+```
+
+
+
+
+```{r}
+pto_df
+no_hols
+pto_df$date<-mdy(pto_df$date)
+pto_df
+```
+
+
+#Take out PTO
+```{r}
+df_noPTO<-df%>%filter(`Task Name` != "PTO")
+View(df_noPTO)
+```
+
+
+```{r}
+install.packages("dplyr")
+```
+
+
+#Load Packages
+```{r}
+library(tidyverse)
+library(lubridate)
+```
+
+```{r}
+library(dplyr)
+```
+
+```{r}
+library(ggplot2)
+```
+
+
+
+#See Rivers Agile Employees and Contractors
+```{r}
+employee_counts<-table(df_noPTO$Name)
+employee_counts<-as.data.frame(employee_counts)
+employee_names_and_contractors<-employee_counts[,1]
+print(employee_counts)
+```
+
+#Get separate Day, Month, And Year Columns from Date Using Lubridate Functions
+```{r}
+#Get Date into format that is readable by lubridate
+df_noPTO_noHOL$Date_mdy<-mdy(df_noPTO_noHOL$Date)
+#Get Day, Month, and Year
+df_noPTO_noHOL$day<-mday(df_noPTO_noHOL$Date_mdy)
+df_noPTO_noHOL$month<-month(df_noPTO_noHOL$Date_mdy)
+df_noPTO_noHOL$year<-year(df_noPTO_noHOL$Date_mdy)
+df_noPTO_noHOL$billhrs<-0
+df_noPTO_noHOL$billhrs[df_noPTO_noHOL$`Is Billable`==1]<-df_noPTO_noHOL$Hours[df_noPTO_noHOL$`Is Billable`==1]
+df_noPTO_noHOL$day_of_week<-wday(df_noPTO_noHOL$Date_mdy, week_start=1)
+```
+
+#TO GENERATE A TABLE FOR JUST ONE DAY:
+#ENTER DAY
+```{r}
+table_day=1 #Replace with day of your choosing
+table_month=6 #Replace with month of your choosing
+table_year=2022
+```
+
+
+```{r}
+dated_df<-df_noPTO_noHOL%>%filter(day==table_day & month==table_month & year==2022)
+dated_df<-dated_df[,-3:-5]
+table_df<-aggregate(cbind(Hours, billhrs)~Name, data=dated_df, sum)
+table_df$Date<-paste(table_month, "/", table_day, "/", table_year)
+table_df$Utilization<-round(table_df$billhrs/table_df$Hours, digits=4)
+table_df
+```
+#TO GENERATE A TABLE FOR A PERIOD LONGER THAN A DAY:
+#ENTER START DATE AND END DATE
+```{r}
+start_day=1 #Replace with day of your choosing
+start_month=6 #Replace with month of your choosing
+start_year=2022
+
+end_day=30 #Replace with last day of the month of your choosing
+end_month=6 #Replace with month of your choosing
+end_year=2022
+```
+
+#ORDER DATAFRAME BY DATE
+```{r}
+df_noPTO_noHOL<-df_noPTO_noHOL[order(as.Date(df_noPTO_noHOL$Date, format="%m/%d/%Y")),]
+```
+
+
+#Last week starts on 5400
+
+#MAKE DATAFRAME WITH MONTHLY UTILIZATION REPORTS
+```{r}
+by_month<-data.frame()
+for(i in 6:12){
+  temp<-df_noPTO_noHOL%>%filter(month==i)
+  temp2<-temp[,-3:-5]
+  temp2<-aggregate(cbind(Hours, billhrs)~Name, data=temp2, sum)
+  temp2$Month<-i
+  temp2$Utilization<-round(temp2$billhrs/temp2$Hours, digits=4)
+  by_month<-rbind(by_month, temp2)
+}
+```
+
+
+```{r}
+employee_names
+```
+
+```{r}
+Aparna<-df%>%filter(Name=="Aparna")
+Avanti<-df%>%filter(Name=="Avanti")
+```
+
+```{r}
+df_noPTO_noHOL<-df_noPTO%>%filter(`Task Name`!="Company Holiday")
+df_noPTO_noHOL%>%filter(month == 12)
+```
+
+
+```{r}
+no_contractors<-df_noPTO_noHOL%>%filter(`Is Contractor`==0)
+all_days<-data.frame()
+for(m in 6:12){
+  for(d in 1:31){
+   temp<-no_contractors%>%filter(month==m, day==d)
+    if(nrow(temp!=0)){
+     temp2<-temp[,-3:-5]
+     temp2<-aggregate(cbind(Hours, billhrs)~Name, data=temp2, sum)
+     temp2$day<-d
+     temp2$month<-m
+     temp2$Utilization<-round(temp2$billhrs/temp2$Hours, digits=4)
+     all_days<-rbind(all_days, temp2)
+    }
+  }
+}
+```
+
+
+```{r}
+summary(all_days)
+```
+#What do the basic summary statistics tell us?
+- On Average Employees are working 8.045 hours a day. The most someone has ever put in in one day was 13 hours, the least was 1/2 an hour
+- The Average Number of billable hours being performed by each employee is 5.915. The minimum number of billable hours in a day is 0. The maximum    number in a day is 13.
+- The Average Utilization of each employee is 0.7327. 
+
+#See Rivers Agile Employees ONLY
+```{r}
+employee_counts<-table(all_days$Name)
+employee_counts<-as.data.frame(employee_counts)
+employee_names<-employee_counts[,1]
+print(employee_counts)
+```
+
+
+```{r}
+all_days$date<-mdy(paste(all_days$month, all_days$day, as.numeric("2022")))
+```
+
+
+#Let's look at each employee's utilization rates over time and get overall means!
+```{r}
+employee_ut_means<-data.frame(matrix(ncol = 2, nrow = 0))
+i=1
+
+for(name in employee_names){
+  employee<-all_days%>%filter(Name==name)
+  plot<-ggplot(data=employee, aes(x=date, y=Utilization))+geom_line()+ggtitle(name)
+  print(plot)
+  print(paste(name, "'s mean utilization is ", mean(employee$Utilization)))
+  employee_ut_means[i,1]<-name
+  employee_ut_means[i,2]<-mean(employee$Utilization)
+  i=i+1
+}
+
+```
+This looks about what we expected! 
+Question: Can we assume that extended dips towards 0 occur when a project has ended?
+Question: Why does Chris's lower than the others? And Keith 1!
+Question: Is Same working on shorter term problems than everyone else?
+
+Plan: Find out who has the highest mean_utilization*mean_total_hrs
+
+#Now lets get a daily summary that is an average of all employees so we can map time trends!
+```{r}
+avg_daily<-aggregate(cbind(Hours, billhrs)~date, data=all_days, sum)
+avg_daily$Utilization<-round(avg_daily$billhrs/avg_daily$Hours, digits=4)
+avg_daily
+```
+#Plot it!
+```{r}
+plot<-ggplot(data=avg_daily, aes(x=date, y=Utilization))+geom_point()
+print(plot)
+```
+
+Question: What does it mean when Utilization = 0?
+There was at least one employee working but they didn't bill any hours
+Lets get a closer look at what's happening on 0 utilization days
+```{r}
+no_ut<-avg_daily%>%filter(Utilization==0)
+no_ut$day_of_week<-wday(no_ut$date, label=TRUE)
+no_ut
+```
+9/12 of the 0 utilization days occurred on weekends, when it looks like only one employee came in to do some short activities, so we don't need to worry about why hours weren't being billed on those days
+
+9/5, 11/24 and 11/25 were holidays (Labor Day and Thanksgiving). It makes sense that no billable work was being done on those days, but there are still a significant number of hours being logged. Let's take a closer look at what those hours mean:
+```{r}
+holidays<-df_noPTO_noHOL%>%filter(Date_mdy=="2022-09-05" | Date_mdy=="2022-11-24"|Date_mdy=="2022-11-24")
+holidays
+```
+All except one of these hours is just listed as "Company Holiday", so it's probably just a way to indicate that holidays aren't docking the record of hours worked.
+
+
+#Because we now know that 0 utilization days are weekends or holidays, let's drop them and get a closer look at what's really going on in the data
+```{r}
+no_hols<-avg_daily%>%filter(Utilization!=0)
+plot<-ggplot(data=no_hols, aes(x=date, y=Utilization))+geom_point()
+print(plot)
+```
+We've still got some outliers here, lets take a closer look at them
+```{r}
+outliers<-no_hols%>%filter(Utilization<.5)
+outliers
+```
+7/4 is the Fourth of July. 10/29 is a Saturday. 11/6 is a Sunday. 12/26 was Boxing day -> Company Holiday
+#Let's update our no-holiday df to drop these as well!
+```{r}
+no_hols<-no_hols%>%filter(Utilization>0.5)
+plot<-ggplot(data=no_hols, aes(x=date, y=Utilization))+geom_point() + labs(x="Month", y="Utilization", title="Utilization Over the Provided Six Months" ) + geom_smooth(method="lm", formula=y~x+I(x^2))
+print(plot)
+```
+
+#Lets check out what's going on in that september dip!
+```{r}
+dipview<-no_hols%>%filter(Utilization<=.7)
+dipview
+
+dip<-df_noPTO_noHOL%>%filter(month==9 & day>=7 & day<=20 &`Task Name`=="Training")
+dip
+
+postdip<-df_noPTO_noHOL%>%filter(month==11 & day>=7 & day<=20&`Task Name`=="Training")
+postdip
+
+sum(dip$Hours[dip$`Is Billable`==0])
+#sum(dip$Hours[dip$`Is Billable`==1])
+sum(postdip$Hours[postdip$`Is Billable`==0])
+#sum(postdip$Hours[postdip$`Is Billable`==1])
+```
+
+```{r}
+dip<-dip%>%filter(`Is Billable`==0)
+dip
+task_counts<-table(dip$`Task Name`)
+task_counts<-as.data.frame(task_counts)
+task_counts
+task_counts<-table(postdip$`Task Name`)
+task_counts<-as.data.frame(task_counts)
+task_counts
+```
+
+```{r}
+install.packages("scales")
+```
+```{r}
+library(scales)
+```
+
+```{r}
+no_hols_weekends.out<-no_hols%>%filter(weekday!="Sun" & weekday!="Sat")
+no_hols_wknd.out.conf.out<-no_hols_weekends.out%>%filter(date < ymd("2022-09-12") | date > ymd("2022-09-16"))
+no_hols_wknd.out.conf.out
+```
+
+
+If we fit a basic linear model it looks like utilization rates are almost perfectly constant, but this is clearly not the case. 
+Lets see what 
+```{r}
+date.vect<-ymd( c("2022-06-01", "2022-07-01","2022-08-01","2022-09-01","2022-10-01","2022-11-01","2022-12-01","2022-12-31"))
+plot<-ggplot(data=no_hols_wknd.out.conf.out, aes(x=date, y=Utilization))+geom_point(color="#606060") +geom_smooth(method="lm", formula=y~x+I(x^2), color="#E55E26")+theme_bw()+labs(x="Month", y="Utilization", title="Utilization by Day", ) + theme(axis.title = element_text(size = 18), title = element_text(size = 18), axis.text=element_text(size = 12)) + scale_x_date(breaks = date_breaks("1 month"),
+  labels = date_format("%b"))
+print(plot)
+```
+
+
+
+This looks a little better but not great. 
+```{r}
+plot<-ggplot(data=no_hols, aes(x=date, y=Utilization))+geom_point() + geom_smooth()
+print(plot)
+```
+It looks like the data is actually very cyclical. Is there a method to determine cyclicality in the data?
+Yes!
+#First we must know the period of a cycle, which we can are going to do visually for now. Lets get a narrower View
+```{r}
+no_hols$month<-month(no_hols$date)
+sept<-no_hols%>%filter(month==9| month==8)
+plot<-ggplot(data=sept, aes(x=date, y=Utilization))+geom_point() + geom_smooth()
+print(plot)
+```
+#Visually it looks like a cycle is 1 month long
+```{r}
+no_hols$day<-mday(no_hols$date)
+thirtydays<-no_hols%>%filter(day!=31)
+ut_timeseries <- ts(no_hols$Utilization, frequency = 30, start = 1)
+ut_timeseries_components <- decompose(ut_timeseries)
+cyclical<-ut_timeseries_components$seasonal
+random<-ut_timeseries_components$random
+par( mfrow= c(3,1) )
+plot(trend, xlab="", ylab="Trend")
+plot(cyclical, xlab="", ylab="Cyclical")
+plot(random, xlab="Month", ylab="Random")
+
+```
+The Seasonal Component here is 1 month. The season component predicts a dip in utilization at the end of the month followed by a spike at the start of the next month
+
+#Lets check if we can see this reflected in the model. We will do so by creating a dummy for end of the month and start of the month
+```{r}
+no_hols$day<-mday(no_hols$date)
+no_hols$start_month<-0
+no_hols$start_month[no_hols$day<4]<-1
+no_hols$end_month<-0
+no_hols$end_month[no_hols$day>21]<-1
+no_hols$middle_month<-0
+no_hols$middle_month[no_hols$day>10&no_hols$day<20]<-1
+```
+
+#Lets build a linear model with these dummies now and see what we get
+```{r}
+options(scipen=9)
+seasonality_checkHr<-lm(Hours~month+day+end_month, no_hols)
+summary(seasonality_checkHr)
+seasonality_checkUt<-lm(Utilization~month+day+middle_month+end_month, no_hols)
+summary(seasonality_checkUt)
+```
+
+#Look visually for differences in Utilization by day of week and day of month
+```{r}
+no_hols$weekday<-wday(no_hols$date,label=TRUE, week_start=1) #Add day of week indicator, 1=Monday
+no_hols_weekends.out
+#Summarize by day of week
+weekday_sum<-aggregate(cbind(Hours, billhrs)~weekday, data=no_hols_weekends.out, mean)
+weekday_sum$utilization<-weekday_sum$billhrs/weekday_sum$Hours
+plot_weekday_billhrs<-ggplot(data = weekday_sum, aes(x=weekday, y=billhrs)) + geom_col(fill="#E47227")+labs(x="Weekday", y= "Average Billable Hours")+theme_bw()+ theme(axis.title = element_text(size = 16), title = element_text(size = 15), axis.text=element_text(size = 12)) 
+plot_weekday_billhrs
+plot_weekday_hours<-ggplot(data = weekday_sum, aes(x=weekday, y=Hours)) + geom_col(aes(fill=weekday))
+plot_weekday_hours
+plot_weekday_utilization<-ggplot(data = weekday_sum, aes(x=weekday, y=utilization)) + geom_col(aes(fill=weekday))
+plot_weekday_utilization
+
+```
+```{r}
+no_hols$weekday<-wday(no_hols$date, label=TRUE)
+no_hols
+```
+
+
+#Look visually for differences in Utilization by day of month
+```{r}
+#Summarize by day of month, without weekends
+month_sum<-no_hols%>%filter(weekday!="Sat" & weekday!="Sun")
+month_sum<-aggregate(cbind(Hours, billhrs)~day, data=month_sum, sum)
+month_sum$utilization<-month_sum$billhrs/month_sum$Hours
+plot_month_billhrs<-ggplot(data = month_sum, aes(x=day, y=billhrs)) + geom_col(aes(fill=billhrs))
+plot_month_billhrs
+plot_month_hours<-ggplot(data = month_sum, aes(x=day, y=Hours)) + geom_col(aes(fill=Hours))
+plot_month_hours
+plot_month_utilization<-ggplot(data = month_sum, aes(x=day, y=utilization)) + geom_col(aes(fill=utilization))+labs(x="Day of the Month", y="Utilization", title="Average Utilization For Each Day in the Month", fill="Utilization" ) 
+plot_month_utilization
+
+```
+
+```{r}
+install.packages("RColorBrewer")
+library(RColorBrewer)
+```
+
+E47227
+E55E26
+```{r}
+month_sum
+```
+
+```{r}
+plot_month_utilization<-ggplot(data = month_sum, aes(x=day, y=utilization)) + geom_col(aes(fill=utilization))+labs(x="Day of the Month", y="Utilization", title="Average Utilization For Each Day in the Month", fill="Utilization" ) + scale_fill_gradient(low="#E47227", high="#BEBEBE") +theme_bw()+ theme(axis.title = element_text(size = 16), title = element_text(size = 15), axis.text=element_text(size = 12)) + 
+    coord_cartesian(ylim=c(.72, .88))
+       
+#+ theme(panel.background = element_rect(fill = "g"))
+plot_month_utilization
+```
+
+
+#Figure out Which Projects are teams, Duos, and Solo projects
+
+```{r}
+team_names<-df_noPTO%>%group_by('Project Name')
+project_names<-table(df_noPTO$'Project Name')
+project_counts<-as.data.frame(project_names)
+project_counts<-project_counts%>%filter(Var1!="Internal")
+colnames(team_names)[4]<-"Project_Name"
+team_names<-team_names%>%filter(Project_Name!="Internal")
+team_num<-rep(0,9)
+
+multi_count<-1
+two_count<-1
+solo_count<-1
+
+team<-as.data.frame(matrix(nrow=1, ncol=3))
+duo<-as.data.frame(matrix(nrow=1, ncol=3))
+solo<-as.data.frame(matrix(nrow=1, ncol=3))
+
+for(project in project_counts$Var1){
+  project_names<-team_names%>%filter(Project_Name==project)
+  project_counts<-table(project_names$'Name')
+  project_counts<-as.data.frame(project_counts)
+  project_counts$Project<-project
+  project_names$Utilization<-round(project_names$billhrs/project_names$Hours, digits=4)
+  
+  if(nrow(project_counts)==1){
+    solo[solo_count, 1]<-project
+    solo[solo_count, 2]<-sum(project_names$billhrs)
+    solo[solo_count, 3]<-sum(project_names$billhrs)
+    solo_count<-solo_count+1
+  }
+  else if(nrow(project_counts)>=3){
+    team[multi_count, 1]<-project
+    team[multi_count, 2]<-sum(project_names$billhrs)/nrow(project_counts)
+    team[multi_count, 3]<-sum(project_names$billhrs)
+    team_num[multi_count]<-nrow(project_counts)
+    multi_count<-multi_count+1
+    print(project_counts)
+  }
+  else{
+    duo[two_count, 1]<-project
+    duo[two_count, 2]<-sum(project_names$billhrs)/2
+    duo[two_count, 3]<-sum(project_names$billhrs)
+    two_count<-two_count+1
+  }
+}
+
+```
+
+```{r}
+solo<-solo[!sapply(solo,is.null)]
+solo<-solo%>%filter(V2!=0)
+mean(solo$V2)
+solo$team_size="solo"
+solo$avg_bill_hr<-sum(solo$V2)/nrow(solo)
+solo$avg_tot_bill_hr<-sum(solo$V3)/nrow(solo)
+
+
+duo<-duo[!sapply(duo,is.null)]
+duo<-duo%>%filter(V2!=0)
+duo$team_size="duo"
+mean(duo$V2)
+duo$avg_bill_hr<-sum(duo$V2)/nrow(duo)
+duo$avg_tot_bill_hr<-sum(duo$V3)/nrow(duo)
+
+team<-team[!sapply(team,is.null)]
+team<-team%>%filter(V2!=0)
+team$team_size="team"
+team$avg_bill_hr<-sum(team$V2)/nrow(team)
+team$avg_tot_bill_hr<-sum(team$V3)/nrow(team)
+
+mean(team$V2)
+
+solo
+duo
+team
+
+joint<-rbind(solo, duo)
+joint<-rbind(joint, team)
+
+joint<-joint%>%filter(V2!=0)
+```
+```{r}
+joint
+```
+
+
+```{r}
+for_graph<-data.frame(matrix(nrow=0, ncol=2))
+for_graph[1,]<-c("Solo", as.numeric(521.6786)	 )
+for_graph[2,]<-c("Duo", as.numeric(564.825	) )
+for_graph[3,]<-c("Team", as.numeric(1234.5) )
+
+for_graph[1,2]<-as.numeric(for_graph[1,2])
+for_graph[2,2]<-as.numeric(for_graph[2,2])
+for_graph[3,2]<-as.numeric(for_graph[3,2])
+
+ggplot(for_graph, aes(x=X1, y=as.numeric(X2), fill=X1))+geom_col()+labs(x="Project Size", y = "Hours", title="Average Hours Spent Per Team on a Project", fill="Team Size")
+
+mean(team_num)
+```
+
+
+```{r}
+ggplot(joint, aes(x=team_size, y=V3, fill=team_size))+geom_col()+labs(x="Team Size", y = "Hours", title="Total Hours Spent", fill="Team Size")
+ggplot(joint, aes(x=team_size, y=V2, fill=team_size))+geom_col()+labs(x="Team Size", y = "Hours", title="Total Hours Spent Per Person on a Project", fill="Team Size")
+
+```
+
+```{r}
+for_graph<-data.frame(matrix(nrow=0, ncol=2))
+for_graph[1,]<-c("Solo", as.numeric(521.6786)	 )
+for_graph[2,]<-c("Duo", as.numeric(286.9766) )
+for_graph[3,]<-c("Team", as.numeric(282.4125) )
+
+for_graph[1,2]<-as.numeric(for_graph[1,2])
+for_graph[2,2]<-as.numeric(for_graph[2,2])
+for_graph[3,2]<-as.numeric(for_graph[3,2])
+
+ggplot(for_graph, aes(x=X1, y=as.numeric(X2), fill=X1))+geom_col()+labs(x="Project Size", y = "Hours", title="Average Hours Spent Per Person on a Project", fill="Team Size")
+
+```
+
+```{r}
+no_hols
+```
+
+
+#Get total Contractor Hours by date:
+```{r}
+contractors<-df_noPTO_noHOL%>%filter(`Is Contractor`==1)
+#contractors
+contractor.bydate<-aggregate(cbind(Hours)~Date_mdy, data=contractors, sum)
+colnames(contractor.bydate)<-c("date", "Contractor.Hours")
+contractor.bydate
+no_hols
+joined.bydate<-merge(contractor.bydate, no_hols, by="date")
+joined.bydate
+```
+
+```{r}
+joined.bydate<-joined.bydate%>%filter(Hours>5)
+contractor_plot<-ggplot(data=joined.bydate, aes(x=Contractor.Hours, y=Hours))+geom_point(color="#606060")+theme_bw()+labs(x="Contractor Hours", y="Employee Hours", title="Correlation of Employee Hours and Contractor Hours") + geom_smooth(method="lm", color="#E47227")+ theme(axis.title = element_text(size = 16), title = element_text(size = 16.5), axis.text=element_text(size = 12))       
+contractor_plot
+
+joined.bydate$ut_under.7<-FALSE
+joined.bydate$ut_under.7[joined.bydate$Utilization<0.7]<-TRUE
+
+joined.bydate$conthrs_over40<-0
+joined.bydate$conthrs_over40[joined.bydate$Contractor.Hours>40]<-1
+
+
+
+contractor_ut_plot<-ggplot(data=joined.bydate, aes(x=Contractor.Hours, y=Utilization))+geom_point(color="#606060")+theme_bw()+labs(x="Contractor Hours", y="Employee Utilization", title="Correlation of Employee Utilization and Contractor Hours") + geom_smooth(method="lm", color="#E47227")+ theme(axis.title = element_text(size = 16), title = element_text(size = 15.8), axis.text=element_text(size = 12))       + geom_label(aes(x=19, y=.65, label="Coefficient: 0.0024**\nStandard Error: 0.00078"))
+contractor_ut_plot
+
+```
+
+```{r}
+cont_reg<-lm(Utilization~Contractor.Hours, joined.bydate)
+summary(cont_reg)
+```
+
+
+```{r}
+install.packages("patchwork")
+library(patchwork)
+```
+
+
+```{r}
+contractorhrs_plot<-ggplot(data=joined.bydate)+geom_point(aes(x=date, y=Contractor.Hours), color="#606060")+theme_bw()+labs(x="Date", title="Date and Contractor Hours")+ theme(axis.title = element_text(size = 16), title = element_text(size = 15.8), axis.text=element_text(size = 12))   
+
+employeehrs_plot<-ggplot(data=joined.bydate)+geom_point(aes(x=date, y=Hours), color="#E47227")+geom_point(aes(x=date, y=Hours), color="#E47227")+theme_bw()+labs(x="Date", title="Date and Contractor Hours")+ theme(axis.title = element_text(size = 16), title = element_text(size = 15.8), axis.text=element_text(size = 12))   
+
+contractorhrs_plot + employeehrs_plot
+```
+
+
+
+```{r}
+month_ut <-aggregate(cbind(Utilization)~month, data=joined.bydate, mean)
+month_ut
+ggplot(month_ut, aes(x=month, y=Utilization))+geom_col(fill="#E47227")+labs(x="Month", y = "Utilization", title="Monthly Utilization")+ theme(axis.title = element_text(size = 16), title = element_text(size = 15.8), axis.text=element_text(size = 12))       
+```
+Look at bottom 10 employees by utilization rates<-jeff
+individual Utilization rate, no contractors, individual training rate <- jake, tesfa, and jingchuan
